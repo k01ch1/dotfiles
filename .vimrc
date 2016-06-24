@@ -278,7 +278,7 @@ endif
 "--------------------------------------------------------------------------- 
 "Gundoの設定
 if has('persistent_undo')
-    set undodir=~/.vim/undo
+    set undodir=~/.vimundo
     set undofile
 endif
 
