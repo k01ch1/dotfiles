@@ -70,10 +70,56 @@ set cmdheight=2
 set list 
 set listchars=tab:>-,trail:_,eol:$,extends:>,precedes:<,nbsp:% 
 
+
+"--------------------------------------------------------------------------- 
+"dein Scripts-----------------------------
+" Required:
+set runtimepath^=~/.vim/dein/repos/github.com/Shougo/dein.vim
+
+" Required:
+call dein#begin(expand('~/.vim/dein'))
+
+" Let dein manage dein
+" Required:
+call dein#add('Shougo/dein.vim')
+
+" Add or remove your plugins here:
+call dein#add('Shougo/neosnippet.vim')
+call dein#add('Shougo/neosnippet-snippets')
+call dein#add('Shougo/unite.vim')
+call dein#add('nathanaelkane/vim-indent-guides')
+call dein#add('scrooloose/nerdtree')
+call dein#add('tomtom/tcomment_vim') "コメントON/OFFを手軽に実行 command:Ctrl+-
+call dein#add('bronson/vim-trailing-whitespace') "行末の半角スペースを可視化&削除
+call dein#add('itchyny/lightline.vim') "ステータスライン拡張
+call dein#add('nanotech/jellybeans.vim')
+call dein#add('tomasr/molokai')
+call dein#add('sjl/gundo.vim')
+
+" You can specify revision/branch/tag.
+call dein#add('Shougo/vimshell', { 'rev': '3787e5' })
+
+" Required:
+call dein#end()
+
+" Required:
+filetype plugin indent on
+
+" If you want to install not installed plugins on startup.
+if dein#check_install()
+  call dein#install()
+endif
+
+
+"--------------------------------------------------------------------------- 
+" 見た目に関する設定
+
+" default colorscheme
 colorscheme jellybeans
 "colorscheme molokai
 "colorscheme desert
 
+" indent guidesの設定
 let g:indent_guides_enable_on_vim_startup=1
 let g:indent_guides_start_level=2
 let g:indent_guides_auto_colors=0
@@ -82,7 +128,7 @@ autocmd VimEnter,Colorscheme * :hi IndentGuidesEven ctermbg=234
 let g:indent_guides_color_change_percent = 30
 let g:indent_guides_guide_size = 1
 
-"全角スペースをハイライト表示 
+" 全角スペースをハイライト表示 
 function! ZenkakuSpace() 
   highlight ZenkakuSpace cterm=underline ctermfg=lightblue guibg=#666666 
 endfunction 
@@ -130,34 +176,54 @@ endif
 " endfunction 
 " """""""""""""""""""""""""""""" 
 
-set noshowmode
 
+" lightlineの設定
+set noshowmode
 let g:lightline = {
-      \ 'colorscheme': 'wombat',
+      \ 'colorscheme': 'seoul256',
       \ 'mode_map': {'c': 'NORMAL'},
       \ 'active': {
-      \   'left': [ [ 'mode', 'paste' ], [ 'fugitive', 'filename' ] ]
+      \   'right': [ [ 'syntastic', 'lineinfo' ],
+      \              [ 'percent' ], [ 'winform' ],
+      \              [ 'fileformat', 'fileencoding', 'filetype' ] ],
+      \   'left': [ [ 'mode', 'paste' ], [ 'fugitive', 'branch', 'filename' ] ]
       \ },
       \ 'component_function': {
+      \   'linetotal': 'LightLineTotal',
       \   'modified': 'LightLineModified',
       \   'readonly': 'LightLineReadonly',
       \   'fugitive': 'LightLineFugitive',
       \   'filename': 'LightLineFilename',
+      \   'filepath': 'LightLineFilepath',
       \   'fileformat': 'LightLineFileformat',
       \   'filetype': 'LightLineFiletype',
       \   'fileencoding': 'LightLineFileencoding',
-      \   'mode': 'LightLineMode'
+      \   'mode': 'LightLineMode',
+      \   'winform': 'LightLineWinform'
       \ },
-      \ 'separator': { 'left': '⮀', 'right': '⮂' },
-      \ 'subseparator': { 'left': '⮁', 'right': '⮃' }
+      \ 'separator': { 'left': "\u2b80", 'right': "\u2b82" },
+      \ 'subseparator': { 'left': "\u2b81", 'right': "\u2b83" },
+      \ 'component_expand': {
+      \   'syntastic': 'SyntasticStatuslineFlag',
+      \ },
+      \ 'component_type': {
+      \   'syntastic': 'error',
       \ }
+      \ }
+
+let g:lightline.component = {
+      \ 'lineinfo': '%3l[%L]:%-2v'}
+
+function! LightLineWinform()
+  return winwidth(0) > 50 ? 'w' . winwidth(0) . ':' . 'h' . winheight(0) : ''
+endfunction
 
 function! LightLineModified()
   return &ft =~ 'help\|vimfiler\|gundo' ? '' : &modified ? '+' : &modifiable ? '' : '-'
 endfunction
 
 function! LightLineReadonly()
-  return &ft !~? 'help\|vimfiler\|gundo' && &readonly ? 'x' : ''
+  return &ft !~? 'help\|vimfiler\|gundo' && &readonly ? "⭤" : ''
 endfunction
 
 function! LightLineFilename()
@@ -165,32 +231,44 @@ function! LightLineFilename()
         \ (&ft == 'vimfiler' ? vimfiler#get_status_string() :
         \  &ft == 'unite' ? unite#get_status_string() :
         \  &ft == 'vimshell' ? vimshell#get_status_string() :
-        \ '' != expand('%:t') ? expand('%:t') : '[No Name]') .
+        \ '' != expand('%') && winwidth(0) <=120 ? expand('%:t') : winwidth(0) >120 ? expand('%:p') : '[No Name]') .
         \ ('' != LightLineModified() ? ' ' . LightLineModified() : '')
 endfunction
 
+function! LightLineFilepath()
+  return winwidth(0) <=120 ? expand('%:h') : ''
+endfunction
+
 function! LightLineFugitive()
-  if &ft !~? 'vimfiler\|gundo' && exists('*fugitive#head')
-    return fugitive#head()
-  else
-    return ''
-  endif
+  try
+    if &ft !~? 'vimfiler\|gundo' && exists('*fugitive#head') && winwidth(0) > 55
+      let _ = fugitive#head()
+      return strlen(_) ? '⭠ '._ : ''
+    endif
+  catch
+  endtry
+  return ''
 endfunction
 
 function! LightLineFileformat()
-  return winwidth(0) > 70 ? &fileformat : ''
+  return winwidth(0) > 80 ? &fileformat : ''
 endfunction
 
 function! LightLineFiletype()
-  return winwidth(0) > 70 ? (&filetype !=# '' ? &filetype : 'no ft') : ''
+  return winwidth(0) > 70 ? (strlen(&filetype) ? &filetype : 'no ft') : ''
 endfunction
 
 function! LightLineFileencoding()
-  return winwidth(0) > 70 ? (&fenc !=# '' ? &fenc : &enc) : ''
+  return winwidth(0) > 60 ? (strlen(&fenc) ? &fenc : &enc) : ''
 endfunction
 
 function! LightLineMode()
-  return winwidth(0) > 60 ? lightline#mode() : ''
+  return winwidth(0) > 30 ? lightline#mode() : ''
+endfunction
+
+function! s:syntastic()
+  SyntasticCheck
+  call lightline#update()
 endfunction
 
 
@@ -286,45 +364,6 @@ nnoremap <SPACE>g :GundoToggle<CR>
 
 
 "--------------------------------------------------------------------------- 
-"dein Scripts-----------------------------
-" Required:
-set runtimepath^=/home/pi/.vim/dein/repos/github.com/Shougo/dein.vim
-
-" Required:
-call dein#begin(expand('/home/pi/.vim/dein'))
-
-" Let dein manage dein
-" Required:
-call dein#add('Shougo/dein.vim')
-
-" Add or remove your plugins here:
-call dein#add('Shougo/neosnippet.vim')
-call dein#add('Shougo/neosnippet-snippets')
-call dein#add('Shougo/unite.vim')
-call dein#add('nathanaelkane/vim-indent-guides')
-call dein#add('scrooloose/nerdtree')
-call dein#add('tomtom/tcomment_vim') "コメントON/OFFを手軽に実行 command:Ctrl+-
-call dein#add('bronson/vim-trailing-whitespace') "行末の半角スペースを可視化&削除
-call dein#add('itchyny/lightline.vim') "ステータスライン拡張
-call dein#add('nanotech/jellybeans.vim')
-call dein#add('tomasr/molokai')
-call dein#add('sjl/gundo.vim')
-
-" You can specify revision/branch/tag.
-call dein#add('Shougo/vimshell', { 'rev': '3787e5' })
-
-" Required:
-call dein#end()
-
-" Required:
-filetype plugin indent on
-
-" If you want to install not installed plugins on startup.
-if dein#check_install()
-  call dein#install()
-endif
-
-"--------------------------------------------------------------------------- 
 "prefix keys
 inoremap <C-b> <LEFT> 
 inoremap <C-j> <DOWN>
@@ -350,10 +389,10 @@ inoremap <C-o> <ESC>o
 " inoremap <> <><LEFT> 
 
 " 括弧入力時に自動で閉じ括弧を入力 
-inoremap {<Enter> {}<Left><CR><ESC><S-o> 
-inoremap [<Enter> []<Left><CR><ESC><S-o> 
-inoremap (<Enter> ()<Left><CR><ESC><S-o> 
-
+" inoremap {<Enter> {}<Left><CR><ESC><S-o> 
+" inoremap [<Enter> []<Left><CR><ESC><S-o> 
+" inoremap (<Enter> ()<Left><CR><ESC><S-o> 
+"
 " 日付挿入マクロ 
 inoremap <Leader>date <C-R>=strftime('%Y/%m/%d (%a)')<CR> 
 inoremap <Leader>time <C-R>=strftime('%H:%M')<CR> 
